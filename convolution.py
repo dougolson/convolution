@@ -32,10 +32,16 @@ def wave_generator(type = "square", cycles=5, samples_per_cycle = 100, duty_cycl
     '''
     total_samples = cycles * samples_per_cycle
     result = []
-    if type.lower() == "square":
+    if type.lower() in ["square", "sqr", "sq"]:
+        high = [1] * int(samples_per_cycle * duty_cycle)
+        low = [-1] * int(samples_per_cycle * (1-duty_cycle))
+        cycle = low + high
+        result = cycle * cycles
+        return result
+    elif type.lower() in ['pulse', 'pls']:
         seg_length = samples_per_cycle // 2
         high = [1] * int(seg_length * duty_cycle)
-        low = [-1] * int(seg_length * (1-duty_cycle))
+        low = [0] * int(seg_length * (1-duty_cycle))
         cycle = low + high
         result = cycle * cycles
         return result
@@ -91,9 +97,9 @@ def add_noise(arr, noise_percent):
     result = [x + (random.random() - .5) * noise_scale_factor for x in arr]
     return result
 
-def gaussian_kernel(n_samples=100, width_factor = 1):
+def kernel_gaussian(n_samples=100, width_factor = .2):
     """
-    gaussian_kernel(n_samples=100, width_factor = 1)
+    kernel_gaussian(n_samples=100, width_factor = 1)
 
     Parameters
     ----------
@@ -101,20 +107,82 @@ def gaussian_kernel(n_samples=100, width_factor = 1):
         length of the kernel
     width_factor : int or float
         determines the width of the bell
-        .001 is very narrow, 1 is approximately 
-        the width of the kernel
+        .001 is narrow, 1 is approximately 
+        the width of the kernel. Width is similar
+        to variance
     Returns
     -------
     list
         a list containing a gaussian kernel. 
     """
+    n_samples = [n_samples, n_samples + 1][n_samples % 2 == 0]
     kernel = [0] * n_samples
-    variance = n_samples * width_factor
+    width = n_samples * width_factor
     for x in range(n_samples):
-        term1 = 1 / math.sqrt(variance * 2 * math.pi)
-        term2 = 1 / math.pow(math.e,((x-n_samples//2)**2/(2*variance)))
+        term1 = 1 / math.sqrt(width * 2 * math.pi)
+        term2 = 1 / math.pow(math.e,((x-n_samples//2)/(width))**2)
         kernel[x] = term1 * term2
     return kernel
+
+def kernel_parabolic(n_samples = 100):
+    """
+    kernel_parabolic(n_samples = 100)
+
+    Parameters
+    ----------
+    n_samples : int
+        length of the kernel
+    Returns
+    -------
+    list
+        an array containing a parabolic (Epanechnikov) kernel. 
+    """
+    kernel = []
+    bound = n_samples // 2
+    for i in range(-bound, bound + 1):
+        data_point = .75 * (1 - (i / bound )**2)
+        data_point /= bound
+        kernel.append(data_point)
+    return kernel
+
+def kernel_triangular(n_samples = 100):
+    """
+    kernel_triangular(n_samples = 100)
+
+    Parameters
+    ----------
+    n_samples : int
+        length of the kernel
+    Returns
+    -------
+    list
+        an array containing a triangular kernel. 
+    """
+    kernel = []
+    bound = n_samples // 2
+    for i in range(-bound, bound + 1):
+        data_point = 1 - abs(i / bound)
+        data_point /= bound
+        kernel.append(data_point)
+    return kernel
+
+def kernel_rectangular(n_samples = 100):
+    """
+    kernel_rectangular(n_samples = 100)
+
+    Parameters
+    ----------
+    n_samples : int
+        length of the kernel
+    Returns
+    -------
+    list
+        an array containing a rectangular kernel. 
+    """
+    kernel = [1/n_samples] * n_samples
+    return kernel
+
+
 
 def convolve(array, kernel):
     """
