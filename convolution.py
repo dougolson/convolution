@@ -3,6 +3,16 @@ import math
 import matplotlib.pyplot as plt
 import random
 
+"""
+Simple 1-D convolution
+* functions to generate waveforms of various kinds
+* functions to generate various kernels
+* function to add noise
+* a simple 1-D convolution function
+* matplotlib.pyplot imported as a conveience
+* TO DO - hysteresis threshold, transient detection 
+"""
+
 def wave_generator(type = "square", cycles=5, samples_per_cycle = 100, duty_cycle=.5):
     '''
     wave_generator(type = "sine", cycles=5, samples_per_cycle = 100):
@@ -10,7 +20,7 @@ def wave_generator(type = "square", cycles=5, samples_per_cycle = 100, duty_cycl
     Parameters
     ----------
     type : str
-        sine, square, triangle
+        sine, square, impulse, triangle
     cycles : int 
         the number of wave cycles to generate
     samples_per_cycle : int
@@ -165,8 +175,7 @@ def ramp(length = 1000):
     -------
     list
         a list containing the step data 
-    """
-        
+    """    
     chunk = length // 3
     low = [0] * chunk
     high = [1] * chunk 
