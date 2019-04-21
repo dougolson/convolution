@@ -12,92 +12,46 @@ Simple 1-D convolution
 * matplotlib.pyplot imported as a conveience
 * TO DO - hysteresis threshold, transient detection 
 """
+def shift_left(arr, shift_ammount):
+    return arr[shift_ammount:]
 
-def wave_generator(type = "square", cycles=5, samples_per_cycle = 100, duty_cycle=.5):
-    '''
-    wave_generator(type = "sine", cycles=5, samples_per_cycle = 100):
-    
+def convolve(array, kernel, shift=True):
+    """
+    convolve(array, kernel)
+
     Parameters
     ----------
-    type : str
-        sine, square, impulse, triangle
-    cycles : int 
-        the number of wave cycles to generate
-    samples_per_cycle : int
-        the number of data points per wave cycle
+    array : list [1, 2, 3...]
+        a list of numeric types
+    kernel : list [1, 2, 3...]
+        a list of numeric types
     Returns
     -------
     list
-        a list containing the output data
-    '''
-    total_samples = cycles * samples_per_cycle
-    result = []
-    if type.lower() in ["square", "sqr", "sq"]:
-        high = [1] * int(samples_per_cycle * duty_cycle)
-        low = [-1] * int(samples_per_cycle * (1-duty_cycle))
-        cycle = low + high
-        result = cycle * cycles
+        a list containing the convolution of the 
+        input array with the kernel. 
+    """
+    result_length = len(array) + len(kernel)
+    result = [0] * result_length
+    for i, elt in enumerate(array):
+        for j, eltj in enumerate(kernel):
+            result[i + j] += (elt * eltj)
+    if shift:
+        result = shift_left(result, len(kernel)//2)
         return result
-    elif type.lower() in ['pulse', 'pls']:
-        seg_length = samples_per_cycle // 2
-        high = [1] * int(seg_length * duty_cycle)
-        low = [0] * int(seg_length * (1-duty_cycle))
-        cycle = low + high
-        result = cycle * cycles
-        return result
-    elif type.lower() in ['imp', 'impulse']:
-        length = cycles * samples_per_cycle
-        low = [0] * (length // 2)
-        high = [1]
-        return low + high + low
-    elif type.lower() in ['sin', 'sine']:
-        for i in range(total_samples):
-            result.append(math.sin(2 / samples_per_cycle * math.pi * i % samples_per_cycle))
-        return result
-    elif type.lower() in ['tri', 'triangle']:
-        up = []
-        down = []
-        seg_length = samples_per_cycle // 4 
-        for i in range(seg_length):
-            up.append(i / seg_length)
-        for i in range(seg_length):
-            down.append((seg_length - i) / seg_length)
-        pos = up + down
-        neg = [-x for x in pos]
-        cycle = pos + neg
-        result = cycle * cycles
-        return result
-
-def get_average(arr):
-    return sum([abs(x) for x in arr]) / len(arr)
-   
-def get_rms(arr):
-    return math.sqrt(sum([x**2 for x in arr]) / len(arr))
-
-def add_noise(arr, noise_percent):
-    '''
-    add_noise(arr, noise_percent)
-    
-    Parameters
-    ----------
-    arr :list
-        the input array
-    noise_percent : int or float
-        determines the amount of noise added to the
-        input array as a percent (1 = 100%) of the 
-        RMS average of the input array
-    Returns
-    -------
-    list
-        a new list with added noise.
-    '''
-    # noise_percent 0.0 - 1.0
-    avg_level = get_rms(arr)
-    noise_scale_factor = avg_level * noise_percent
-    result = [x + (random.random() - .5) * noise_scale_factor for x in arr]
     return result
 
-def kernel_gaussian(n_samples=100, width_factor = .2):
+def normalize_sum(arr):
+    _sum = sum([abs(x) for x in arr])
+    result = [x / _sum for x in arr]
+    return result
+
+def normalize_peak(arr):
+    _max = [max(arr), abs(min(arr))][max(arr) < abs(min(arr))]
+    result = [x / _max for x in arr]
+    return result
+
+def kernel_gaussian(n_samples=100, width_factor = 1):
     """
     kernel_gaussian(n_samples=100, width_factor = 1)
 
@@ -117,12 +71,22 @@ def kernel_gaussian(n_samples=100, width_factor = .2):
     """
     n_samples = [n_samples, n_samples + 1][n_samples % 2 == 0]
     kernel = [0] * n_samples
-    width = n_samples * width_factor
-    for x in range(n_samples):
-        term1 = 1 / math.sqrt(width * 2 * math.pi)
-        term2 = 1 / math.pow(math.e,((x-n_samples//2)/(width))**2)
-        kernel[x] = term1 * term2
+    width = width_factor #n_samples * width_factor
+    for i in range(n_samples):
+        x = (i-n_samples//2) / (n_samples//2)
+        kernel[i] = math.pow(math.e, -(2 * math.pi * x**2)/ width_factor)
+    kernel = normalize_sum(kernel)
     return kernel
+
+
+
+def kernel_gaussian_derivative(n_samples=100, width_factor = 1):
+    kernel = kernel_gaussian(n_samples, width_factor)
+    kernel = convolve(kernel, [1,-1])
+    kernel = normalize_sum(kernel[:n_samples]) 
+    kernel = [2*x for x in kernel]
+    return kernel
+
 
 def kernel_parabolic(n_samples = 100):
     """
@@ -182,30 +146,60 @@ def kernel_rectangular(n_samples = 100):
     kernel = [1/n_samples] * n_samples
     return kernel
 
-
-
-def convolve(array, kernel):
-    """
-    convolve(array, kernel)
-
+def waveform(type = "square", cycles=5, samples_per_cycle = 100, duty_cycle=.5):
+    '''
+    wave_generator(type = "sine", cycles=5, samples_per_cycle = 100):
+    
     Parameters
     ----------
-    array : list [1, 2, 3...]
-        a list of numeric types
-    kernel : list [1, 2, 3...]
-        a list of numeric types
+    type : str
+        sine, square, impulse, pulse, triangle
+    cycles : int 
+        the number of wave cycles to generate
+    samples_per_cycle : int
+        the number of data points per wave cycle
     Returns
     -------
     list
-        a list containing the convolution of the 
-        input array with the kernel. 
-    """
-    result_length = len(array) + len(kernel)
-    result = [0] * result_length
-    for i, elt in enumerate(array):
-        for j, eltj in enumerate(kernel):
-            result[i + j] += (elt * eltj)
-    return result
+        a list containing the output data
+    '''
+    total_samples = cycles * samples_per_cycle
+    result = []
+    if type.lower() in ["square", "sqr", "sq"]:
+        high = [1] * int(samples_per_cycle * duty_cycle)
+        low = [-1] * int(samples_per_cycle * (1-duty_cycle))
+        cycle = low + high
+        result = cycle * cycles
+        return result
+    elif type.lower() in ['pulse', 'pls']:
+        seg_length = samples_per_cycle // 2
+        high = [1] * int(seg_length * duty_cycle)
+        low = [0] * int(seg_length * (1-duty_cycle))
+        cycle = low + high
+        result = cycle * cycles
+        return result
+    elif type.lower() in ['imp', 'impulse']:
+        length = cycles * samples_per_cycle
+        low = [0] * (length // 2)
+        high = [1]
+        return low + high + low
+    elif type.lower() in ['sin', 'sine']:
+        for i in range(total_samples):
+            result.append(math.sin(2 / samples_per_cycle * math.pi * i % samples_per_cycle))
+        return result
+    elif type.lower() in ['tri', 'triangle']:
+        up = []
+        down = []
+        seg_length = samples_per_cycle // 4 
+        for i in range(seg_length):
+            up.append(i / seg_length)
+        for i in range(seg_length):
+            down.append((seg_length - i) / seg_length)
+        pos = up + down
+        neg = [-x for x in pos]
+        cycle = pos + neg
+        result = cycle * cycles
+        return result
 
 def step(length = 1000):
     """
@@ -273,6 +267,39 @@ def impulse(length=1000):
     low = [0] * chunk
     high = [1]
     return low + high + low
+
+def get_average(arr):
+    return sum([abs(x) for x in arr]) / len(arr)
+   
+def get_rms(arr):
+    return math.sqrt(sum([x**2 for x in arr]) / len(arr))
+
+def add_noise(arr, noise_percent):
+    '''
+    add_noise(arr, noise_percent)
+    
+    Parameters
+    ----------
+    arr :list
+        the input array
+    noise_percent : int or float
+        determines the amount of noise added to the
+        input array as a percent (1 = 100%) of the 
+        RMS average of the input array
+    Returns
+    -------
+    list
+        a new list with added noise.
+    '''
+    # noise_percent 0.0 - 1.0
+    avg_level = get_rms(arr)
+    noise_scale_factor = avg_level * noise_percent
+    result = [x + (random.random() - .5) * noise_scale_factor for x in arr]
+    return result
+
+
+
+
 
 
 
