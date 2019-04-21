@@ -297,10 +297,54 @@ def add_noise(arr, noise_percent):
     result = [x + (random.random() - .5) * noise_scale_factor for x in arr]
     return result
 
+def threshold(arr):
+    result = [0] * len(arr)
+    for i, sample in enumerate(arr):
+        if sample > .75:
+            result[i] = sample
+    return result
+
+def chunk_max(arr, chunk_length=5000):
+    result = [0] * len(arr)
+    start = 0
+    end = chunk_length
+    chunk_number = 0
+    last_idx = 0
+    n_chunks = len(arr) // chunk_length
+    last_chunk_len = len(arr) % chunk_length
+    for i in range(n_chunks):
+        chunk = arr[start:end]
+        _max = max(chunk)
+        idx = chunk.index(_max)
+        # print(f'start = {start}, end = {end}, index found = {idx}')
+        print(f'idx = {idx}, last_idx = {last_idx}, idx - last_idx = {idx- last_idx}')
+        if not last_idx:
+            result[chunk_number * chunk_length + idx] = 1
+            last_idx = chunk_number * chunk_length +  idx
+        if chunk_number * chunk_length + idx - last_idx >= chunk_length // 4:
+            result[chunk_number * chunk_length + idx] = 1
+            last_idx = chunk_number * chunk_length +  idx
+        start += chunk_length
+        end += chunk_length
+        chunk_number += 1
+    chunk = arr[end : end + last_chunk_len]
+    if chunk:
+        _max = max(chunk)
+        idx = chunk.index(_max)
+        result[chunk_number * chunk_length + idx] = 1
+    return result
 
 
 
 
+def high_pass(arr, alpha):
+    # alpha is basically an RC time constant
+    # for i from 1 to n
+    #  y[i] := α * (y[i-1] + x[i] - x[i-1])
+    result = [0]* len(arr)
+    for i in range(1, len(arr)):
+        result[i] = alpha * (result[i-1] + x[i] - x[i-1])
+    return result
 
 
 
