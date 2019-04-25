@@ -74,19 +74,140 @@ class Waveform:
     def get_time_axis(self, obj):
         return [self.sample_interval * s for s in range(len(obj))]
 
+class Kernel:
+
+    def __init__(self, n_samples = 21, samplerate = 44100):
+        self.n_samples = [n_samples, n_samples + 1][n_samples % 2 == 0]
+        self.samplerate = samplerate
+
+    def normalize_sum(self, arr):
+        _sum = sum([abs(x) for x in arr])
+        result = [x / _sum for x in arr]
+        return result
+
+    def gaussian(self,  width_factor = 1):
+        """
+        gaussian( width_factor = 1)
+
+        Parameters
+        ----------
+        width_factor : int or float
+            determines the width of the bell
+            .001 is narrow, 1 is approximately 
+            the width of the kernel. Width is similar
+            to variance
+        Returns
+        -------
+        list
+            a list containing a gaussian kernel. 
+        """
+        
+        kernel = [0] * self.n_samples
+        width = width_factor #self.n_samples * width_factor
+        for i in range(self.n_samples):
+            x = (i-self.n_samples//2) / (self.n_samples//2)
+            kernel[i] = math.pow(math.e, -(2 * math.pi * x**2)/ width_factor)
+        kernel = self.normalize_sum(kernel)
+        return kernel
+
+
+
+    # def gaussian_derivative(self,  width_factor = 1):
+    #     kernel = gaussian(self.n_samples, width_factor)
+    #     kernel = convolve(kernel, [1,-1])
+    #     kernel = normalize_sum(kernel[:self.n_samples]) 
+    #     kernel = [2*x for x in kernel]
+    #     return kernel
+
+
+    def parabolic(self):
+        """
+        parabolic(n_samples = 100)
+
+        Parameters
+        ----------
+        n_samples : int
+            length of the kernel
+        Returns
+        -------
+        list
+            an array containing a parabolic (Epanechnikov) kernel. 
+        """
+        kernel = []
+        bound = self.n_samples // 2
+        for i in range(-bound, bound + 1):
+            data_point = .75 * (1 - (i / bound )**2)
+            data_point /= bound
+            kernel.append(data_point)
+        return kernel
+
+    def triangular(self):
+        """
+        triangular()
+
+        Parameters
+        ----------
+        n_samples : int
+            length of the kernel
+        Returns
+        -------
+        list
+            an array containing a triangular kernel. 
+        """
+        kernel = []
+        bound = self.n_samples // 2
+        for i in range(-bound, bound + 1):
+            data_point = 1 - abs(i / bound)
+            data_point /= bound
+            kernel.append(data_point)
+        return kernel
+
+    def rectangular(self):
+        """
+        rectangular()
+
+        Parameters
+        ----------
+        n_samples : int
+            length of the kernel
+        Returns
+        -------
+        list
+            an array containing a rectangular kernel. 
+        """
+        kernel = [1/self.n_samples] * self.n_samples
+        return kernel
+
+    def sinc(self, frequency=1000, n_periods = 11):
+        samples_per_period = self.samplerate // frequency
+        samples = samples_per_period * n_periods
+        start = -samples // 2
+        end = samples // 2
+        return [math.sin(math.pi * x * n_periods / end) / (math.pi * x * n_periods / end) if x != 0 else 1 for x in range(start, end)]
+
+
+
+
 if __name__ == "__main__":
-    test = Waveform(frequency=100)
     import matplotlib.pyplot as plt
-    sin = test.sine()
-    sqr = test.square()
-    tri = test.triangle()
-    saw = test.sawtooth()
-    plt.plot(sin)
-    plt.plot(sqr)
-    plt.plot(tri)
-    plt.plot(saw)
+    # test = Waveform(frequency=100)
+    # sin = test.sine()
+    # sqr = test.square()
+    # tri = test.triangle()
+    # saw = test.sawtooth()
+    # plt.plot(sin)
+    # plt.plot(sqr)
+    # plt.plot(tri)
+    # plt.plot(saw)
+    # plt.show()
+    # # print([x for x in saw])
+    k = Kernel(n_samples=100)
+    # plt.plot(k.gaussian())
+    # plt.plot(k.triangular())
+    # plt.plot(k.rectangular())
+    # plt.plot(k.parabolic())
+    plt.plot(k.sinc(frequency=1000, n_periods=7))
     plt.show()
-    # print([x for x in saw])
 
 #     def waveform(self, type = "square", cycles=5, samples_per_cycle = 100, duty_cycle=.5):
 #         '''
@@ -269,110 +390,13 @@ if __name__ == "__main__":
 #         return result
 #     return result
 
-# def normalize_sum(arr):
-#     _sum = sum([abs(x) for x in arr])
-#     result = [x / _sum for x in arr]
-#     return result
+
 
 # def normalize_peak(arr):
 #     _max = [max(arr), abs(min(arr))][max(arr) < abs(min(arr))]
 #     result = [x / _max for x in arr]
 #     return result
 
-# def kernel_gaussian(n_samples=100, width_factor = 1):
-#     """
-#     kernel_gaussian(n_samples=100, width_factor = 1)
-
-#     Parameters
-#     ----------
-#     n_samples : int
-#         length of the kernel
-#     width_factor : int or float
-#         determines the width of the bell
-#         .001 is narrow, 1 is approximately 
-#         the width of the kernel. Width is similar
-#         to variance
-#     Returns
-#     -------
-#     list
-#         a list containing a gaussian kernel. 
-#     """
-#     n_samples = [n_samples, n_samples + 1][n_samples % 2 == 0]
-#     kernel = [0] * n_samples
-#     width = width_factor #n_samples * width_factor
-#     for i in range(n_samples):
-#         x = (i-n_samples//2) / (n_samples//2)
-#         kernel[i] = math.pow(math.e, -(2 * math.pi * x**2)/ width_factor)
-#     kernel = normalize_sum(kernel)
-#     return kernel
-
-
-
-# def kernel_gaussian_derivative(n_samples=100, width_factor = 1):
-#     kernel = kernel_gaussian(n_samples, width_factor)
-#     kernel = convolve(kernel, [1,-1])
-#     kernel = normalize_sum(kernel[:n_samples]) 
-#     kernel = [2*x for x in kernel]
-#     return kernel
-
-
-# def kernel_parabolic(n_samples = 100):
-#     """
-#     kernel_parabolic(n_samples = 100)
-
-#     Parameters
-#     ----------
-#     n_samples : int
-#         length of the kernel
-#     Returns
-#     -------
-#     list
-#         an array containing a parabolic (Epanechnikov) kernel. 
-#     """
-#     kernel = []
-#     bound = n_samples // 2
-#     for i in range(-bound, bound + 1):
-#         data_point = .75 * (1 - (i / bound )**2)
-#         data_point /= bound
-#         kernel.append(data_point)
-#     return kernel
-
-# def kernel_triangular(n_samples = 100):
-#     """
-#     kernel_triangular(n_samples = 100)
-
-#     Parameters
-#     ----------
-#     n_samples : int
-#         length of the kernel
-#     Returns
-#     -------
-#     list
-#         an array containing a triangular kernel. 
-#     """
-#     kernel = []
-#     bound = n_samples // 2
-#     for i in range(-bound, bound + 1):
-#         data_point = 1 - abs(i / bound)
-#         data_point /= bound
-#         kernel.append(data_point)
-#     return kernel
-
-# def kernel_rectangular(n_samples = 100):
-#     """
-#     kernel_rectangular(n_samples = 100)
-
-#     Parameters
-#     ----------
-#     n_samples : int
-#         length of the kernel
-#     Returns
-#     -------
-#     list
-#         an array containing a rectangular kernel. 
-#     """
-#     kernel = [1/n_samples] * n_samples
-#     return kernel
 
 
 
