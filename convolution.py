@@ -338,12 +338,23 @@ def chunk_max(arr, chunk_length=5000):
 
 
 def high_pass(arr, alpha):
-    # alpha is basically an RC time constant
+    # alpha is equivalent to an RC time constant
+    # small alpha (.1) has a wider stop band
+    # higher alpha (1) has a narrower stop band
     # for i from 1 to n
     #  y[i] := α * (y[i-1] + x[i] - x[i-1])
     result = [0]* len(arr)
     for i in range(1, len(arr)):
-        result[i] = alpha * (result[i-1] + x[i] - x[i-1])
+        result[i] = alpha * (result[i-1] + arr[i] - arr[i-1])
+    result = normalize_peak(result)
+    return result
+
+def find_reversals(arr):
+    result = [0] * len(arr)
+    for i in range(1, len(arr)-1):
+        if arr[i-1] < arr[i] > arr[i+1]:
+            if abs(arr[i]) > .25:
+                result[i] = 1
     return result
 
 
