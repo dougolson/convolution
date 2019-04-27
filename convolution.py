@@ -12,6 +12,41 @@ Simple 1-D convolution
 * matplotlib.pyplot imported as a conveience
 * TO DO - hysteresis threshold, transient detection 
 """
+class Convolve:
+    def __init__(self, array, kernel):
+        self.array = array
+        self.kernel = kernel
+
+    def convolve(self, shift=True):
+        """
+        convolve(self.array, self.kernel)
+
+        Parameters
+        ----------
+        self.array : list [1, 2, 3...]
+            a list of numeric types
+        self.kernel : list [1, 2, 3...]
+            a list of numeric types
+        Returns
+        -------
+        list
+            a list containing the convolution of the 
+            input self.array with the self.kernel. 
+        """
+        result_length = len(self.array) + len(self.kernel)
+        result = [0] * result_length
+        for i, elt in enumerate(self.array):
+            for j, eltj in enumerate(self.kernel):
+                result[i + j] += (elt * eltj)
+        if shift:
+            result = self.shift_left(result, len(self.kernel)//2)
+            return result
+        return result
+    
+    def shift_left(self, array, shift_ammount):
+        return array[shift_ammount:]
+
+
 class Waveform:
     def __init__(self, samplerate = 44100, frequency=1000):
         self.sample_rate = samplerate
@@ -101,16 +136,53 @@ class Kernel:
         list
             a list containing a gaussian kernel. 
         """
-        
         kernel = [0] * self.n_samples
-        width = width_factor #self.n_samples * width_factor
         for i in range(self.n_samples):
             x = (i-self.n_samples//2) / (self.n_samples//2)
             kernel[i] = math.pow(math.e, -(2 * math.pi * x**2)/ width_factor)
         kernel = self.normalize_sum(kernel)
         return kernel
 
+    def gaussian_hp(self,  width_factor = 1):
+        """
+        gaussian_hp( width_factor = 1)
+        TODO: Make scale_factor into a parameter
 
+        Parameters
+        ----------
+        width_factor : int or float
+            determines the width of the bell
+            .001 is narrow, 1 is approximately 
+            the width of the kernel. Width is similar
+            to variance
+        Returns
+        -------
+        list
+            a list containing a gaussian high pass kernel. 
+        """
+        kernel = [0] * self.n_samples
+        scale_factor = 5 # make this into a parameter
+        for i in range(self.n_samples):
+            x = (i-self.n_samples//2) / (self.n_samples//2)
+            if x == 0:
+                kernel[i] = scale_factor * math.pow(math.e, -(2 * math.pi * x**2)/ width_factor)
+            else:
+                kernel[i] = -1 / scale_factor * math.pow(math.e, -(2 * math.pi * x**2)/ width_factor)
+        kernel = self.normalize_sum(kernel)
+        return kernel
+
+
+    def gaussian2(self, sigma = 1):
+
+        result = []
+        start = -self.n_samples // 2
+        end = self.n_samples // 2
+        for n in range(start, end):
+            i = (n / end)
+            amplitude = (1 / (2 * math.pi * sigma)**.5) / (math.pow(math.e, (i**2 / 2 * sigma )))
+            result.append(amplitude)
+        result = self.normalize_sum(result)
+        return result
 
     # def gaussian_derivative(self,  width_factor = 1):
     #     kernel = gaussian(self.n_samples, width_factor)
@@ -139,6 +211,31 @@ class Kernel:
             data_point = .75 * (1 - (i / bound )**2)
             data_point /= bound
             kernel.append(data_point)
+        return kernel
+
+    def parabolic_hp(self):
+        """
+        parabolic_hp(n_samples = 100)
+
+        Parameters
+        ----------
+        self.n_samples : int
+            length of the kernel
+        Returns
+        -------
+        list
+            an array containing a parabolic (Epanechnikov) kernel. 
+        """
+        kernel = []
+        bound = self.n_samples // 2
+        for i in range(-bound, bound + 1):
+            data_point = .75 * (1 - (i / bound )**2)
+            data_point /= bound
+            if i == 0:
+                kernel.append(data_point)
+            else:
+                kernel.append(-data_point)
+            
         return kernel
 
     def triangular(self):
@@ -178,12 +275,54 @@ class Kernel:
         kernel = [1/self.n_samples] * self.n_samples
         return kernel
 
+    def rectangular_hp(self):
+        """
+        rectangular_hp()
+
+        Parameters
+        ----------
+        self.n_samples : int
+            length of the kernel
+        Returns
+        -------
+        list
+            an array containing a rectangular high pass kernel. 
+        """
+        middle_sample_index = self.n_samples // 2
+        kernel = [-1/self.n_samples] * self.n_samples
+        kernel[middle_sample_index] = 1
+        kernel = self.normalize_sum(kernel)
+        return kernel
+
     def sinc(self, frequency=1000, n_periods = 11):
         samples_per_period = self.samplerate // frequency
         samples = samples_per_period * n_periods
         start = -samples // 2
         end = samples // 2
-        return [math.sin(math.pi * x * n_periods / end) / (math.pi * x * n_periods / end) if x != 0 else 1 for x in range(start, end)]
+        result = [math.sin(math.pi * x * n_periods / end) / (math.pi * x * n_periods / end) if x != 0 else 1 for x in range(start, end)]
+        result = self.normalize_sum(result)
+        result = [2*x for x in result]
+        return result
+    
+
+
+
+    def sinc_hp(self, frequency=1000, n_periods = 11):
+        samples_per_period = self.samplerate // frequency
+        samples = samples_per_period * n_periods
+        start = -samples // 2
+        end = samples // 2
+        result = [math.sin(math.pi * x * n_periods / start) / (math.pi * x * n_periods / end) if x != 0 else 1 for x in range(start, end)]
+        result = self.normalize_sum(result)
+        result = [2*x for x in result]
+        return result
+
+    def exp_hp(self):
+        result = [1]
+        for i in range(self.n_samples - 1):
+            result.append(-math.e**(-i/20))
+        result = self.normalize_sum(result)
+        return result
 
 
 
@@ -201,13 +340,61 @@ if __name__ == "__main__":
     # plt.plot(saw)
     # plt.show()
     # # print([x for x in saw])
-    k = Kernel(n_samples=100)
+    k = Kernel(n_samples=250)
+    k_sinc = k.sinc(frequency=3000)
+    k_sinc_hp = k.sinc_hp(frequency=3000)
+    k_rect = k.rectangular()
+    k_para = k.parabolic()
+    k_exp_hp = k.exp_hp()
+    k_rect_hp = k.rectangular_hp()
+    k_para_hp = k.parabolic_hp()
+    k_gauss = k.gaussian()
+    k_gauss_hp = k.gaussian_hp()
+
+    w = Waveform(frequency=100)
+    sig = w.square(n_periods=10)
+    # c1 = Convolve(sig, k_para)
+    # cnv_para = c1.convolve()
+    # c2 = Convolve(sig, k_rect)
+    # cnv_rect = c2.convolve()
+    # c3 = Convolve(sig, k_sinc)
+    # cnv_sinc = c3.convolve()
+    # c4 = Convolve(sig, k_sinc_hp)
+    # cnv_sinc_hp = c4.convolve()
+    # c5 = Convolve(sig, k_exp_hp)
+    # cnv_exp_hp = c5.convolve()
+    # c6 = Convolve(sig,k_rect_hp)
+    # cnv_rect_hp = c6.convolve()
+    # c7 = Convolve(sig, k_para_hp)
+    # cnv_para_hp = c7.convolve()
+    c8 = Convolve(sig, k_gauss)
+    cnv_gauss = c8.convolve()
+    c9 = Convolve(sig, k_gauss_hp)
+    cnv_gauss_hp = c9.convolve()
+    # plt.plot(k_sinc)
+    # plt.plot(k_sinc_hp)
+    plt.plot(sig)
+    # plt.plot(k_gauss)
+    # plt.plot(k_gauss_hp)
+    plt.plot(cnv_gauss)
+    plt.plot(cnv_gauss_hp)
+    # plt.plot(cnv_rect)
+    # plt.plot(cnv_sinc)
+    # plt.plot(cnv_sinc_hp)
+
+    # plt.plot(cnv_rect)
+    # plt.plot(cnv_rect_hp)
+    plt.show()
     # plt.plot(k.gaussian())
+    # plt.plot(k.gaussian2())
+    # plt.plot(k.gaussian2(sigma=.5))
+    # plt.plot(k.gaussian2(sigma=math.pi**2))
+    # plt.plot(k.gaussian2(sigma=100))
     # plt.plot(k.triangular())
     # plt.plot(k.rectangular())
     # plt.plot(k.parabolic())
-    plt.plot(k.sinc(frequency=1000, n_periods=7))
-    plt.show()
+    # plt.plot(k.sinc(frequency=1000, n_periods=7))
+    # plt.show()
 
 #     def waveform(self, type = "square", cycles=5, samples_per_cycle = 100, duty_cycle=.5):
 #         '''
@@ -361,34 +548,9 @@ if __name__ == "__main__":
 #         return result
 
 
-# def shift_left(arr, shift_ammount):
-#     return arr[shift_ammount:]
 
-# def convolve(array, kernel, shift=True):
-#     """
-#     convolve(array, kernel)
 
-#     Parameters
-#     ----------
-#     array : list [1, 2, 3...]
-#         a list of numeric types
-#     kernel : list [1, 2, 3...]
-#         a list of numeric types
-#     Returns
-#     -------
-#     list
-#         a list containing the convolution of the 
-#         input array with the kernel. 
-#     """
-#     result_length = len(array) + len(kernel)
-#     result = [0] * result_length
-#     for i, elt in enumerate(array):
-#         for j, eltj in enumerate(kernel):
-#             result[i + j] += (elt * eltj)
-#     if shift:
-#         result = shift_left(result, len(kernel)//2)
-#         return result
-#     return result
+
 
 
 
