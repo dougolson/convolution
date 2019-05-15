@@ -54,7 +54,7 @@ class Waveform:
         self.fequency = frequency
         self.period = 1 / frequency
         self.samples_per_period = samplerate // frequency
-        print("Waveform object created")
+        print(f"Waveform object created, f={frequency}, sample rate = {samplerate}")
 
     def sine(self, n_periods = 5):
         result = []
@@ -105,20 +105,124 @@ class Waveform:
                 result.append(i / self.samples_per_period)
         result = result * n_periods
         return result
+    
+    def step_1second(self, seconds = 1):
+        """
+        step()
+            a 1 second step cut into 3
+            segments; low|high|low
+
+        Parameters
+        ----------
+        length: int
+            the length of the returned array
+        Returns
+        -------
+        list
+            a list containing the step data 
+        """
+        length = self.sample_rate * seconds
+        chunk = length // 3
+        result = []
+        low = [0] * chunk
+        high = [1] * chunk 
+        result = low + high + low
+        return result
+
+    def ramp_1second(self, seconds = 1):
+        """
+        ramp(length = 1000)
+            a ramp of a given length cut into 3
+            segments; low|ramp|high
+
+        Parameters
+        ----------
+        length: int
+            the length of the returned array
+        Returns
+        -------
+        list
+            a list containing the step data 
+        """
+        length = self.sample_rate * seconds    
+        chunk = length // 3
+        low = [0] * chunk
+        high = [1] * chunk 
+        ramp = []
+        for i in range(chunk):
+            ramp.append(i / chunk)
+        result = low + ramp + high
+        return result
+
+    def impulse_1second(self, seconds = 1):
+        """
+        impulse(length = 1000)
+            an impulse of a given length cut into 3
+            segments; all zeros with 
+            a single high value (1) low|high|high
+
+        Parameters
+        ----------
+        length: int
+            the length of the returned array
+        Returns
+        -------
+        list
+            a list containing the step data 
+        """
+        length = self.sample_rate * seconds
+        chunk = length // 2
+        low = [0] * chunk
+        high = [1]
+        return low + high + low
 
     def get_time_axis(self, obj):
         return [self.sample_interval * s for s in range(len(obj))]
+    
+    def get_average(self, arr):
+        return sum([abs(x) for x in arr]) / len(arr)
+    
+    def get_rms(self, arr):
+        return math.sqrt(sum([x**2 for x in arr]) / len(arr))
+
+    def add_noise(self, arr, noise_percent):
+        '''
+        add_noise(arr, noise_percent)
+        
+        Parameters
+        ----------
+        arr :list
+            the input array
+        noise_percent : int or float
+            determines the amount of noise added to the
+            input array as a percent (1 = 100%) of the 
+            RMS average of the input array
+        Returns
+        -------
+        list
+            a new list with added noise.
+        '''
+        # noise_percent 0.0 - 1.0
+        avg_level = self.get_rms(arr)
+        noise_scale_factor = avg_level * noise_percent
+        result = [x + (random.random() - .5) * noise_scale_factor for x in arr]
+        return result
 
 class Kernel:
 
     def __init__(self, n_samples = 21, samplerate = 44100):
         self.n_samples = [n_samples, n_samples + 1][n_samples % 2 == 0]
         self.samplerate = samplerate
+        print(f'Kernel created, length {n_samples}, sample rate {samplerate}')
 
     def normalize_sum(self, arr):
         _sum = sum([abs(x) for x in arr])
         result = [x / _sum for x in arr]
         return result
+    
+    def flip_left_right(self, arr):
+        return arr[::-1]
+
 
     def gaussian(self,  width_factor = 1):
         """
@@ -329,30 +433,48 @@ class Kernel:
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    # test = Waveform(frequency=100)
+    test = Waveform(frequency=100)
     # sin = test.sine()
     # sqr = test.square()
     # tri = test.triangle()
     # saw = test.sawtooth()
+    step = test.impulse_1second()
+    step = test.add_noise(step,1)
+    plt.plot(step)
+    
     # plt.plot(sin)
     # plt.plot(sqr)
     # plt.plot(tri)
     # plt.plot(saw)
     # plt.show()
     # # print([x for x in saw])
-    k = Kernel(n_samples=250)
-    k_sinc = k.sinc(frequency=3000)
-    k_sinc_hp = k.sinc_hp(frequency=3000)
-    k_rect = k.rectangular()
-    k_para = k.parabolic()
-    k_exp_hp = k.exp_hp()
-    k_rect_hp = k.rectangular_hp()
-    k_para_hp = k.parabolic_hp()
-    k_gauss = k.gaussian()
-    k_gauss_hp = k.gaussian_hp()
+    # k = Kernel(n_samples=250)
+    k = [0,0,0,0,1,-1,1,-1,0,0,0,0]
+    # k_sinc = k.sinc(frequency=3000)
+    # k_sinc_hp = k.sinc_hp(frequency=3000)
+    # k_rect = k.rectangular()
+    # k_para = k.parabolic()
+    # k_exp_hp = k.exp_hp()
+    # k_rect_hp = k.rectangular_hp()
+    # k_para_hp = k.parabolic_hp()
+    # k_gauss = k.gaussian()
+    # k_gauss_hp = k.gaussian_hp()
 
-    w = Waveform(frequency=100)
-    sig = w.square(n_periods=10)
+    # w = Waveform(frequency=100)
+    # sig = w.square(n_periods=10)
+    a = Convolve(step, k)
+    a_cnv = a.convolve()
+    plt.plot(a_cnv)
+    # a = Convolve(k_rect, k_rect)
+    # a_cnv = a.convolve()
+    # b = Convolve(a_cnv, k_rect)
+    # b_cnv = b.convolve()
+    # c = Convolve(b_cnv, k_rect)
+    # c_cnv = c.convolve()
+    # plt.plot(a_cnv)
+    # plt.plot(b_cnv)
+    # plt.plot(c_cnv)
+
     # c1 = Convolve(sig, k_para)
     # cnv_para = c1.convolve()
     # c2 = Convolve(sig, k_rect)
@@ -367,17 +489,17 @@ if __name__ == "__main__":
     # cnv_rect_hp = c6.convolve()
     # c7 = Convolve(sig, k_para_hp)
     # cnv_para_hp = c7.convolve()
-    c8 = Convolve(sig, k_gauss)
-    cnv_gauss = c8.convolve()
-    c9 = Convolve(sig, k_gauss_hp)
-    cnv_gauss_hp = c9.convolve()
+    # c8 = Convolve(sig, k_gauss)
+    # cnv_gauss = c8.convolve()
+    # c9 = Convolve(sig, k_gauss_hp)
+    # cnv_gauss_hp = c9.convolve()
     # plt.plot(k_sinc)
     # plt.plot(k_sinc_hp)
-    plt.plot(sig)
+    # plt.plot(sig)
     # plt.plot(k_gauss)
     # plt.plot(k_gauss_hp)
-    plt.plot(cnv_gauss)
-    plt.plot(cnv_gauss_hp)
+    # plt.plot(cnv_gauss)
+    # plt.plot(cnv_gauss_hp)
     # plt.plot(cnv_rect)
     # plt.plot(cnv_sinc)
     # plt.plot(cnv_sinc_hp)
